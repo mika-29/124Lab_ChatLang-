@@ -1,0 +1,23 @@
+package GenZLang
+
+//All possible GenZLang.token types sa language
+enum class TokenType{
+    LPAR, RPAR, LBRACE, RBRACE, COMMA, DOT,
+    MINUS, ADD, SEMICOLON, SLASH, STAR,
+    MODULO, EXPONENT, INC, DEC,
+
+    NOT, NOT_EQUAL,
+    ASSIGN, EQUAL_EQUAL,
+    GREATER, G_EQUAL,
+    LESS, L_EQUAL,
+    AND, OR,
+
+    IDENTIFIER,
+
+    STR, NUM, CHAR,
+
+    CLASS, ELSE, FALSE, FUN, FOR, IF, NULL, PRINT,
+    RETURN, SUPER, THIS, TRUE, VAR, WHILE, BREAK, CONTINUE, IMPORT,
+
+    END_OF_FILE
+}
