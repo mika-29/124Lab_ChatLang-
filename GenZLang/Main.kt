@@ -1,43 +1,51 @@
 package GenZLang
 
-fun main() {
-    val evaluator = Evaluator()
-    while (true) {
-        print("> ")
-        //val line = readLine() ?: break
-        val line = readlnOrNull() ?: break
-        if (line.isBlank()) continue
+import java.io.File
+import kotlin.system.exitProcess
 
-        val scanner = Scanner(line)
-        val tokens = scanner.scanTokens()
+fun main(args: Array<String>) {
+    if (args.size == 1) {
 
-        val parser = Parser(tokens)
-
-        try {
-            val statements = parser.parseProgram()
-            evaluator.executeProgram(statements)
-            //if (result!= null) println(formatResult(result))
-            //else println("nil")
-            //AstPrinter.printExpr(expr)
-        } catch (e: ParseError) {
-            //val token = e.token
-            //if (token.type == TokenType.END_OF_FILE){
-                println("[line 1] Error at '${e.message}'")
-           //} else {
-                //println("[line ${token.line}] Error at '${token.lexeme}': ${e.message}")
-            }
-        }
+        val evaluator = Evaluator(isRepl = false)
+        runFile(args[0], evaluator)
+    } else {
+        val evaluator = Evaluator(isRepl = true)
+        runPrompt(evaluator)
+    }
 }
 
-fun formatResult(value: Any?): String {
-    return when (value) {
-        null -> "nil"
-        is Double -> {
-            val intVal = value.toInt()
-            if (value == intVal.toDouble()) intVal.toString()
-            else value.toString()
-        }
-        is String -> value
-        else -> value.toString()
+fun runFile(path: String, evaluator: Evaluator) {
+    val file = File(path)
+    if (!file.exists()) {
+        println("Error: File '$path' not found.")
+        return
+    }
+
+    // Read the whole file as a single string
+    val script = file.readText()
+    run(script, evaluator)
+}
+
+fun runPrompt(evaluator: Evaluator) {
+    while (true) {
+        print("> ")
+        val line = readlnOrNull() ?: break
+        if (line.isBlank()) continue
+        run(line, evaluator)
+    }
+}
+
+fun run(source: String, evaluator: Evaluator) {
+    val scanner = Scanner(source)
+    val tokens = scanner.scanTokens()
+    val parser = Parser(tokens)
+
+    try {
+        val statements = parser.parseProgram()
+        evaluator.executeProgram(statements)
+    } catch (e: ParseError) {
+        println("[line ${e.token.line}] Parse Error: ${e.message}")
+    } catch (e: RuntimeException) {
+        println("Runtime Error: ${e.message}")
     }
 }

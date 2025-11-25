@@ -15,4 +15,5 @@ sealed class Stmt {
     data class Break(val keyword: Token) : Stmt()
     data class Continue(val keyword: Token) : Stmt()
     data class Import(val path: Token) : Stmt()
+    data class Listen(val prompt: String, val variable: Token) : Stmt()
 }

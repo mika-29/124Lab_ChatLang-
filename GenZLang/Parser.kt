@@ -140,10 +140,35 @@ class Parser(private val tokens: List<Token>) {
     fun parseStatement(): Stmt {
         return when {
             match(TokenType.PRINT) -> parsePrintStatement()
+            match(TokenType.INPUT) -> parseListenStatement()
             match(TokenType.SIGIL_IDENT) -> parseVarDeclaration()
-            check(TokenType.IDENTIFIER) && peekNextType() == TokenType.EQUAL -> parseAssignment()
+            match(TokenType.COLON) -> Stmt.Block(parseBlock())
+            (check(TokenType.IDENTIFIER) || check(TokenType.SIGIL_IDENT)) && peekNextType() == TokenType.ASSIGNMENT -> parseAssignment()
+
             else -> parseExpressionStatement()
         }
+    }
+
+    // helper to parse blocks until a terminator is found
+    private fun parseBlock(): List<Stmt> {
+        val statements = mutableListOf<Stmt>()
+
+        // Keep parsing until we hit 'done', 'done if', 'stop when', or EOF
+        while (!checkBlockEnd() && !isAtEnd()) {
+            statements.add(parseStatement())
+        }
+
+        // Consume the terminator if it exists (e.g. "done")
+        if (checkBlockEnd()) {
+            advance()
+        }
+
+        return statements
+    }
+
+    // Helper to identify block terminators [cite: 470, 471, 474]
+    private fun checkBlockEnd(): Boolean {
+        return check(TokenType.END) || check(TokenType.END_IF) || check(TokenType.END_LOOP)
     }
 
     private fun parsePrintStatement(): Stmt {
@@ -169,7 +194,6 @@ class Parser(private val tokens: List<Token>) {
             null,
             sigilToken.line
         )
-
         consume(TokenType.ASSIGNMENT, "Expect 'as' in variable declaration.")
 
         val initializer = parseExpression()
@@ -178,10 +202,10 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun parseAssignment(): Stmt {
-        val name = consume(TokenType.IDENTIFIER, "Expect variable name.")
-        consume(TokenType.EQUAL, "Expect '=' after variable name.")
+        val nameToken = if (match(TokenType.SIGIL_IDENT)) previous() else consume(TokenType.IDENTIFIER, "Expect variable name.")
+        consume(TokenType.ASSIGNMENT, "Expect 'as' after variable name.")
         val value = parseExpression()
-        return Stmt.Assign(name, value)
+        return Stmt.Assign(nameToken, value)
     }
 
     //helper
@@ -192,5 +216,15 @@ class Parser(private val tokens: List<Token>) {
         } else {
             null
         }
+    }
+
+    private fun parseListenStatement(): Stmt {
+        // Syntax: Listen "Prompt" as @name
+        val promptToken = consume(TokenType.STR, "Expect prompt string after 'Listen'.")
+        consume(TokenType.ASSIGNMENT, "Expect 'as' after prompt string.")
+
+        val variable = consume(TokenType.SIGIL_IDENT, "Expect variable for input (e.g., @name).")
+
+        return Stmt.Listen(promptToken.literal.toString(), variable)
     }
 }

@@ -166,7 +166,7 @@ class Scanner(private val source: String) {
             throw RuntimeException("Variable name expected after '$prefix'")
 
         val nameStr = source.substring(startName, current)  // clean name, no spaces
-        val fullLexeme = "$prefix$nameStr"                   // "@name"
+        val fullLexeme = "$prefix$nameStr".lowercase()                   // "@name"
 
         addToken(TokenType.SIGIL_IDENT, fullLexeme)
     }
