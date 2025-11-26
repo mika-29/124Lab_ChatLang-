@@ -1,43 +1,71 @@
 package GenZLang
 
-fun main() {
-    val evaluator = Evaluator()
-    while (true) {
-        print("> ")
-        //val line = readLine() ?: break
-        val line = readlnOrNull() ?: break
-        if (line.isBlank()) continue
+import java.io.File
+import kotlin.system.exitProcess
 
-        val scanner = Scanner(line)
-        val tokens = scanner.scanTokens()
-
-        val parser = Parser(tokens)
-
-        try {
-            val statements = parser.parseProgram()
-            evaluator.executeProgram(statements)
-            //if (result!= null) println(formatResult(result))
-            //else println("nil")
-            //AstPrinter.printExpr(expr)
-        } catch (e: ParseError) {
-            //val token = e.token
-            //if (token.type == TokenType.END_OF_FILE){
-                println("[line 1] Error at '${e.message}'")
-           //} else {
-                //println("[line ${token.line}] Error at '${token.lexeme}': ${e.message}")
-            }
-        }
+fun main(args: Array<String>) {
+    // Check if the user passed a file path argument
+    if (args.size > 1) {
+        println("Usage: GenZLang [script]")
+        exitProcess(64)
+    } else if (args.size == 1) {
+        // SCRIPT MODE: Run the file provided in args[0]
+        runFile(args[0])
+    } else {
+        // REPL MODE: Run interactively (Your original code)
+        runPrompt()
+    }
 }
 
-fun formatResult(value: Any?): String {
-    return when (value) {
-        null -> "nil"
-        is Double -> {
-            val intVal = value.toInt()
-            if (value == intVal.toDouble()) intVal.toString()
-            else value.toString()
-        }
-        is String -> value
-        else -> value.toString()
+// NEW: Function to read a file and run it
+fun runFile(path: String) {
+    val file = File(path)
+    if (!file.exists()) {
+        println("Error: File '$path' not found.")
+        return
+    }
+
+    // Read the whole file into a String
+    val script = file.readText()
+
+    // Create an evaluator (Maintains state for the script duration)
+    val evaluator = Evaluator()
+
+    // Execute
+    run(script, evaluator)
+}
+
+// MOVED: Your original interactive loop
+fun runPrompt() {
+    val evaluator = Evaluator()
+    println("GenZ Lang REPL (Type empty line to quit)")
+
+    while (true) {
+        print("> ")
+        val line = readlnOrNull() ?: break
+        if (line.isBlank()) break // Exit on empty line
+
+        // Execute the single line
+        run(line, evaluator)
+    }
+}
+
+// SHARED: The logic that actually processes code
+fun run(source: String, evaluator: Evaluator) {
+    val scanner = Scanner(source)
+    val tokens = scanner.scanTokens()
+
+    val parser = Parser(tokens)
+
+    try {
+        val statements = parser.parseProgram()
+
+        // This triggers your Scoping/Assignment/Printing logic
+        evaluator.executeProgram(statements)
+
+    } catch (e: ParseError) {
+        println("[line 1] Parse Error: ${e.message}")
+    } catch (e: RuntimeError) {
+        println("[line ${e.token.line}] Runtime Error: ${e.message}")
     }
 }

@@ -139,20 +139,55 @@ class Parser(private val tokens: List<Token>) {
     //parse statements
     fun parseStatement(): Stmt {
         return when {
+            match(TokenType.IF) -> parseIfStatement()
             match(TokenType.PRINT) -> parsePrintStatement()
             match(TokenType.SIGIL_IDENT) -> parseVarDeclaration()
-            check(TokenType.IDENTIFIER) && peekNextType() == TokenType.EQUAL -> parseAssignment()
+            check(TokenType.SIGIL_IDENT) && peekNextType() == TokenType.EQUAL -> parseAssignment()
             else -> parseExpressionStatement()
         }
+    }
+    private fun parseIfStatement(): Stmt {
+        val condition = parseExpression()
+
+        consume(TokenType.COLON, "Expect ':' after then.")
+
+        // IMPORTANT: We use a helper to grab all statements inside the block
+        val thenStmts = parseBlockStatements(listOf(TokenType.ELSE, TokenType.END_IF))
+
+        // IMPORTANT: We wrap them in Stmt.Block.
+        // The Evaluator sees this and creates a NEW Scope (Environment).
+        val thenBranch = Stmt.Block(thenStmts)
+
+        var elseBranch: Stmt? = null
+        if (match(TokenType.ELSE)) {
+            consume(TokenType.COLON, "Expect ':' after otherwise.")
+            val elseStmts = parseBlockStatements(listOf(TokenType.END_IF))
+            elseBranch = Stmt.Block(elseStmts)
+        }
+
+        consume(TokenType.END_IF, "Expect 'done if' to close condition.")
+        match(TokenType.DOT) // Optional: Consumes dot if present after Done if.
+        return Stmt.If(condition, thenBranch, elseBranch)
+    }
+
+    // Helper: Collects statements until it hits a keyword (Else or Done if)
+    private fun parseBlockStatements(terminators: List<TokenType>): List<Stmt> {
+        val statements = mutableListOf<Stmt>()
+        while (!isAtEnd() && terminators.none { check(it) }) {
+            statements.add(parseStatement())
+        }
+        return statements
     }
 
     private fun parsePrintStatement(): Stmt {
         val value = parseExpression()
+        match(TokenType.DOT)
         return Stmt.Print(value)
     }
 
     private fun parseExpressionStatement(): Stmt {
         val expr = parseExpression()
+        match(TokenType.DOT)
         return Stmt.ExprStmt(expr)
     }
 
@@ -171,16 +206,17 @@ class Parser(private val tokens: List<Token>) {
         )
 
         consume(TokenType.ASSIGNMENT, "Expect 'as' in variable declaration.")
-
         val initializer = parseExpression()
 
+        match(TokenType.DOT)
         return Stmt.VarDecl(sigilChar, nameToken, initializer)
     }
 
     private fun parseAssignment(): Stmt {
         val name = consume(TokenType.IDENTIFIER, "Expect variable name.")
-        consume(TokenType.EQUAL, "Expect '=' after variable name.")
+        consume(TokenType.ASSIGNMENT, "Expect 'as' after variable name.")
         val value = parseExpression()
+        match(TokenType.DOT)
         return Stmt.Assign(name, value)
     }
 

@@ -157,8 +157,6 @@ class Scanner(private val source: String) {
     }
 
     private fun captureDatatypePrefix(prefix: Char) {
-        skipNoise() // skip spaces between sigil and variable name
-
         val startName = current
         while (!reachedEnd() && (peek().isLetterOrDigit() || peek() == '_')) nextChar()
 

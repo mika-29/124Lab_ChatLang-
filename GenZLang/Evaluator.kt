@@ -1,16 +1,7 @@
 package GenZLang
 
 class Evaluator {
-    val env = Environment()
-
-    fun evaluate(expr: Expr): Any? {
-        return try {
-            eval(expr)
-        } catch (e: RuntimeError) {
-            println("[ line ${e.token.line} ] Runtime error: ${e.message}")
-            null
-        }
-    }
+    var env = Environment()
 
     private fun eval(expr: Expr): Any? {
         return when (expr) {
@@ -21,14 +12,8 @@ class Evaluator {
             is Expr.Bool -> expr.token.literal
             Expr.Ghosted -> null
             is Expr.Ident -> {
-                val full = expr.token.lexeme          // "@name", "$age", "%score"
-                val identifier = if (full.startsWith("@") || full.startsWith("$") || full.startsWith("%")) {
-                    full.substring(1)                  // remove the sigil
-                } else {
-                    full
-                }
-
-                env.get(identifier)                    // look up the value in the environment
+                val name = stripSigil(expr.token.lexeme)
+                env.get(name)                  // look up the value in the environment
             }
             is Expr.Group -> eval(expr.expression)
 
@@ -123,7 +108,7 @@ class Evaluator {
         return op(a, b)
     }
 
-    private fun isEqual(a: Any?, b: Any?): Boolean {  //so for string ginakuha niya ang isa ka " so its comparing hello and "hello
+    private fun isEqual(a: Any?, b: Any?): Boolean {
         if (a == null && b == null) return true
         if (a == null) return false
         return a == b
@@ -147,14 +132,49 @@ class Evaluator {
             }
             is Stmt.VarDecl -> {
                 val value = eval(stmt.initializer)
-                env.define(stmt.name.lexeme, value)
+                val name = stripSigil(stmt.name.lexeme)
+                env.define(name, value)
             }
             is Stmt.Assign -> {
                 val value = eval(stmt.value)
-                env.assign(stmt.name.lexeme, value)
+                val name = stripSigil(stmt.name.lexeme)
+                env.assign(name, value)
+            }
+
+            is Stmt.Block -> {
+                // Create a new inner scope, run code, then restore outer scope
+                executeBlock(stmt.statements, Environment(env))
+            }
+
+            is Stmt.If -> {
+                if (isTruthy(eval(stmt.condition))) {
+                    execute(stmt.thenBranch)
+                } else if (stmt.elseBranch != null) {
+                    execute(stmt.elseBranch)
+                }
             }
             else -> throw RuntimeException("Unimplemented statement type: ${stmt::class.simpleName}")
         }
+    }
+
+    fun executeBlock(statements: List<Stmt>, environment: Environment) {
+        val previous = this.env // Save outer scope
+        try {
+            this.env = environment // Enter inner scope
+            for (stmt in statements) {
+                execute(stmt)
+            }
+        } finally {
+            this.env = previous // Restore outer scope
+        }
+    }
+
+    private fun stripSigil(lexeme: String): String {
+        val clean = lexeme.trim()
+        if (clean.startsWith("@") || clean.startsWith("$") || clean.startsWith("%")) {
+            return clean.substring(1)
+        }
+        return clean
     }
 
     fun executeProgram(statements: List<Stmt>) {
