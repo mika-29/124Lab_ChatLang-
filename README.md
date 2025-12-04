@@ -19,20 +19,20 @@ Minimal Symbols - It limits the use of punctuation like "{}", ";", or complicate
 
 ## Keywords
 
-"if" → used to run code only when a condition is true
-"then" → used for nested ifs
-"otherwise" → runs if the “if” condition fails
-"done if" → ends the if statement
-"repeat this n times" → loop that repeats code with iteration
-"repeat this until n" → loop that repeats until the condition is met 
-"listen" → for user input 
-"as" → for assignment 
-"false" → represents the Boolean value false
-"true" → represents the Boolean value true
-"create a function “name” " → defines a function
-"say" → outputs/prints text or values
-"return" → exits a function and gives back a value
-"done" → ends a function 
+- "if" → used to run code only when a condition is true
+- "then" → used for nested ifs
+- "otherwise" → runs if the “if” condition fails
+- "done if" → ends the if statement
+- "repeat this n times" → loop that repeats code with iteration
+- "repeat this until n" → loop that repeats until the condition is met 
+- "listen" → for user input 
+- "as" → for assignment 
+- "false" → represents the Boolean value false
+- "true" → represents the Boolean value true
+- "create a function “name” " → defines a function
+- "say" → outputs/prints text or values
+- "return" → exits a function and gives back a value
+- "done" → ends a function 
 
 
 ## Operators
