@@ -118,8 +118,17 @@ class Parser(private val tokens: List<Token>) {
             match(TokenType.FALSE) -> return Expr.Bool(previous())
             match(TokenType.NULL) -> return Expr.Ghosted
             match(TokenType.IDENTIFIER) -> return Expr.Ident(previous())
-            match(TokenType.SIGIL_IDENT) -> return Expr.Ident(previous())
+            match(TokenType.SIGIL_IDENT) -> {
+                var expr: Expr = Expr.Ident(previous())
+                while (match(TokenType.LBRACKET)) {
+                    val index = parseExpression()
+                    consume(TokenType.RBRACKET, "Expect ']' after index.")
+                    expr = Expr.IndexGet(expr, index)
+                }
+                return expr
+            }
             match(TokenType.CALL) -> return parseCallExpression()
+            match(TokenType.LBRACKET) -> return parseArrayLiteral()
             match(TokenType.LPAR) -> {
                 val expr = parseExpression()
                 consume(TokenType.RPAR, "Expect ')' after expression.")
@@ -166,11 +175,27 @@ class Parser(private val tokens: List<Token>) {
             match(TokenType.START_LOOP) -> parseRepeatStatement()
             match(TokenType.FUNCTION) -> parseFunctionDefinition()
             match(TokenType.RETURN) -> parseReturnStatement()
+            match(TokenType.INPUT) -> parseInputStatement()
 
             check(TokenType.SIGIL_IDENT) && tokens.getOrNull(current +1)?.type == TokenType.ASSIGNMENT -> {
-                    parseAssignmentOrDeclaration()
-            } else -> parseExpressionStatement()
+                parseAssignmentOrDeclaration()
+            }
+            check(TokenType.SIGIL_IDENT) && tokens.getOrNull(current +1)?.type == TokenType.LBRACKET -> {
+                parseArrayAssignment()
+            }
+            else -> parseExpressionStatement()
         }
+    }
+
+    private fun parseInputStatement(): Stmt {
+
+        val prompt = parseExpression()
+        consume(TokenType.ASSIGNMENT, "Expect 'as' after input prompt.")
+
+        val variable = consume(TokenType.SIGIL_IDENT, "Expect variable to store input.")
+        consume(TokenType.DOT, "Expect '.' after input statement.")
+
+        return Stmt.Input(prompt, variable)
     }
 
     private fun parseIfStatement(): Stmt {
@@ -178,7 +203,6 @@ class Parser(private val tokens: List<Token>) {
 
         consume(TokenType.COLON, "Expect ':' after then.")
 
-        // IMPORTANT: We use a helper to grab all statements inside the block
         var thenRoot = parseBlockChain(TokenType.NESTED_IF,TokenType.ELSE, TokenType.END_IF)
 
         if(match(TokenType.NESTED_IF)){
@@ -210,11 +234,12 @@ class Parser(private val tokens: List<Token>) {
         }
 
         consume(TokenType.END_IF, "Expect 'done if' to close condition.")
-        match(TokenType.DOT) // Optional: Consumes dot if present after Done if.
+        match(TokenType.DOT) 
         return Stmt.If(condition, thenBranch, elseBranch)
     }
 
     private fun parseLoopStatement(): Stmt {
+        match(TokenType.COLON)
         val bodyRoot = parseChain(TokenType.CONDITION)
         val body = Stmt.Block(bodyRoot)
         consume(TokenType.CONDITION, "Expect 'until' to define the loop condition.")
@@ -225,10 +250,11 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun parseRepeatStatement(): Stmt {
+        val nextToken = tokens.getOrNull(current + 1)
+        val nextIsTimes = nextToken?.type == TokenType.ITERATION
         // We have already consumed 'repeat this' (START_LOOP) to get here.
-
-        if (check(TokenType.NUM) || check(TokenType.SIGIL_IDENT) || check(TokenType.IDENTIFIER)) {
-            val count = parseExpression() // Parses the "5" or "$x"
+        if (check(TokenType.NUM) || check(TokenType.SIGIL_IDENT) || check(TokenType.IDENTIFIER) && nextIsTimes) {
+            val count = parseExpression() 
 
             consume(TokenType.ITERATION, "Expect 'times' after loop count.")
             match(TokenType.COLON)
@@ -267,7 +293,7 @@ class Parser(private val tokens: List<Token>) {
 
     private fun parseAssignmentOrDeclaration(): Stmt {
         val sigilToken = advance()
-        val lexeme = sigilToken.lexeme  // "@name"
+        val lexeme = sigilToken.lexeme 
 
         //val sigilChar = lexeme[0]
         val nameStr = lexeme.substring(1)
@@ -354,5 +380,31 @@ class Parser(private val tokens: List<Token>) {
         }
         consume(TokenType.DOT, "Expect '.' after return value.")
         return Stmt.Return(value)
+    }
+
+    private fun parseArrayLiteral(): Expr {
+        val elements = mutableListOf<Expr>()
+        if (!check(TokenType.RBRACKET)) {
+            do {
+                elements.add(parseExpression())
+            } while (match(TokenType.COMMA))
+        }
+        consume(TokenType.RBRACKET, "Expect ']' after array elements.")
+        return Expr.ArrayLit(elements)
+    }
+
+    private fun parseArrayAssignment(): Stmt {
+        val nameToken = consume(TokenType.SIGIL_IDENT, "Expect array variable name.")
+
+        consume(TokenType.LBRACKET, "Expect '[' after variable name.")
+        val indexExpr = parseExpression()
+        consume(TokenType.RBRACKET, "Expect ']' after index.")
+
+        consume(TokenType.ASSIGNMENT, "Expect 'as' to assign a value to the index.")
+        val valueExpr = parseExpression()
+
+        consume(TokenType.DOT, "Expect '.' after array assignment.")
+
+        return Stmt.ArraySet(nameToken, indexExpr, valueExpr)
     }
 }

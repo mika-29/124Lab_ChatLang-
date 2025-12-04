@@ -38,14 +38,15 @@ class Scanner(private val source: String) {
             '&' -> addToken( type = TokenType.AND)
             '|' -> addToken( type = TokenType.OR)
             '/' -> addToken(TokenType.DIVIDE)
+            '!' -> addToken(TokenType.NOT)
+            '[' -> addToken(TokenType.LBRACKET)
+            ']' -> addToken(TokenType.RBRACKET)
 
             //Multi-character operators
             '+' -> addToken(type = if (match(expected = '+')) TokenType.INC else TokenType.ADD)
             '-' -> addToken(type = if (match(expected = '>')) TokenType.ARROW else TokenType.MINUS)
-            '!' -> addToken(if (match('=')) TokenType.NOT_EQUAL else TokenType.NOT)
             '>' -> addToken(if (match('=')) TokenType.G_EQUAL else TokenType.GREATER)
             '<' -> addToken(if (match('=')) TokenType.L_EQUAL else TokenType.LESS)
-            '=' -> addToken(type = if (match('=')) TokenType.EQUAL_EQUAL else TokenType.EQUAL)
 
             '@', '$', '%' -> captureDatatypePrefix(currentChar)
 
@@ -98,17 +99,22 @@ class Scanner(private val source: String) {
                 addToken(TokenType.WITH_PARAMS, "with parameters")
                 true
             }
+
+            remaining.startsWith("is not") -> {
+                current += "is not".length
+                addToken(TokenType.NOT_EQUAL, "is not") // Map 'is not' to '!='
+                true
+            }
             else -> false
         }
     }
 
     private fun readIdentifier(){
-        // Read the entire contiguous word (no two-word lookahead)
+    
         val wordStart = current - 1
         while (!reachedEnd() && (peek().isLetterOrDigit() || peek() == '_')) nextChar()
         val word = source.substring(wordStart, current).lowercase()
 
-        // Single-word keywords check is now clean and comprehensive
         if (keywords.containsKey(word)) {
             when (word) {
                 "true"  -> addToken(TokenType.TRUE, true)
@@ -211,7 +217,6 @@ class Scanner(private val source: String) {
         // produce correct token with literal=string, lexeme=value (no extra quotes)
         tokens.add(Token(TokenType.STR, value, value, line))
 
-        //println("SCANNED TOKEN -> type=STR, lexeme='$value', literal='$value' (${value.javaClass})")
     }
 
     private fun readNumber() {
@@ -248,8 +253,6 @@ class Scanner(private val source: String) {
         val lexeme = source.substring(start, current)
         val token = Token(type, lexeme, literal, line)
         tokens.add(token)
-
-        //println("SCANNED TOKEN -> type=${token.type}, lexeme='${token.lexeme}', literal=${token.literal} (${token.literal?.javaClass})")
     }
 
     private fun match(expected: Char): Boolean{

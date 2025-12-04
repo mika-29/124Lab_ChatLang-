@@ -65,13 +65,6 @@ class Evaluator {
                 return System.currentTimeMillis() / 1000.0
             }
         })
-        // --- NATIVE FUNCTION: name() ---
-        env.define("input", object : GenZCallable {
-            override fun arity(): Int = 0
-            override fun call(interpreter: Evaluator, arguments: List<Any?>): Any? {
-                return readlnOrNull() ?: ""
-            }
-        })
     }
 
     private fun eval(expr: Expr): Any? {
@@ -91,6 +84,29 @@ class Evaluator {
             is Expr.Unary -> evalUnary(expr)
             is Expr.Binary -> evalBinary(expr)
             is Expr.Call -> evalCall(expr)
+            is Expr.ArrayLit -> {expr.elements.map { eval(it) } }
+            is Expr.IndexGet -> {
+                val left = eval(expr.left)
+                val indexVal = eval(expr.index)
+
+                if (indexVal !is Double) throw RuntimeError(expr.left.token(), "Index must be a number.")
+                val idx = indexVal.toInt()
+
+                return when (left) {
+                    // Allow reading from existing Lists
+                    is List<*> -> {
+                        if (idx < 0 || idx >= left.size) return null
+                        left[idx]
+                    }
+                    // NEW: Allow reading from Strings
+                    is String -> {
+                        if (idx < 0 || idx >= left.length) return null
+                        left[idx].toString() // Return char as a String
+                    }
+
+                    else -> throw RuntimeError(expr.left.token(), "Can only index arrays or strings.")
+                }
+            }
         }
     }
 
@@ -177,7 +193,13 @@ class Evaluator {
         return when {
             left is Double && right is Double -> left + right
             left is String && right is String -> left + right
-            else -> throw RuntimeError(expr.left.token(),
+            left is String && right is Double -> left + right
+            left is List<*> && right is List<*> -> {
+                val combined = mutableListOf<Any?>()
+                combined.addAll(left)
+                combined.addAll(right)
+                combined
+            } else -> throw RuntimeError(expr.left.token(),
                 "Operands must be two numbers or two strings.")
         }
     }
@@ -241,23 +263,30 @@ class Evaluator {
 
             is Stmt.Print -> {
                 val value = eval(stmt.expr)
-                println(value)
+                if(value is List<*>){
+                    println(value.joinToString(""))
+                }else{
+                    println(value)
+                }
             }
+
             is Stmt.ExprStmt -> {
                 eval(stmt.expr) // ignore result
             }
+
             is Stmt.VarDecl -> {
                 val value = eval(stmt.initializer)
                 val name = stripSigil(stmt.name.lexeme)
                 env.define(name, value)
             }
+
             is Stmt.Assign -> {
                 val value = eval(stmt.value)
                 val name = stripSigil(stmt.name.lexeme)
                 try {
                     env.assign(name, value)
-                } catch (e: Exception){
-                    env.define(name,value)
+                } catch (e: Exception) {
+                    env.define(name, value)
                 }
             }
 
@@ -275,22 +304,22 @@ class Evaluator {
             }
 
             is Stmt.Loop -> {
-                while(!isTruthy(eval(stmt.condition))) {
+                while (!isTruthy(eval(stmt.condition))) {
                     execute(stmt.body)
                 }
             }
 
             is Stmt.HybridLoop -> {
                 val countValue = eval(stmt.count)
-                if(countValue !is Double) {
+                if (countValue !is Double) {
                     throw RuntimeError(stmt.count.token(), "Loop count must be a number.")
                 }
-                val count =countValue.toInt()
+                val count = countValue.toInt()
 
-                for(i in 0 until count) {
-                    if(stmt.stopCondition != null){
+                for (i in 0 until count) {
+                    if (stmt.stopCondition != null) {
                         val conditionResult = eval(stmt.stopCondition)
-                        if(isTruthy(conditionResult)) {
+                        if (isTruthy(conditionResult)) {
                             break
                         }
                     }
@@ -301,13 +330,47 @@ class Evaluator {
             is Stmt.Function -> {
                 val function = GenZFunction(stmt, env)
                 val funName = stripSigil(stmt.name.lexeme)
-                env. define(funName, function)
+                env.define(funName, function)
             }
 
             is Stmt.Return -> {
                 val value = eval(stmt.value)
                 throw ReturnValue(value)
             }
+
+            is Stmt.Input -> {
+                val promptValue = eval(stmt.prompt)
+                print(promptValue)
+                val input = readlnOrNull() ?: ""
+                val varName = stripSigil(stmt.variable.lexeme)
+                env.define(varName, input)
+            }
+
+            is Stmt.ArraySet -> {
+                val cleanName = stripSigil(stmt.name.lexeme)
+                val list = env.get(cleanName)
+
+                val indexVal = eval(stmt.index)
+                val newVal = eval(stmt.value)
+
+                if (list !is MutableList<*>) {
+                    throw RuntimeError(stmt.name, "Only arrays can be modified by index.")
+                }
+
+                if (indexVal !is Double) {
+                    throw RuntimeError(stmt.name, "Array index must be a number.")
+                }
+
+                val mutableList = list as MutableList<Any?>
+                val idx = indexVal.toInt()
+
+                if (idx < 0 || idx >= mutableList.size) {
+                    throw RuntimeError(stmt.name, "Index out of bounds.")
+                }
+
+                mutableList[idx] = newVal
+            }
+
             else -> throw RuntimeException("Unimplemented statement type: ${stmt::class.simpleName}")
         }
     }

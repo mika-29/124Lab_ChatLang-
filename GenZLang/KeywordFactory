@@ -15,7 +15,8 @@ object KeywordFactory {
             "say" to TokenType.PRINT,
             "return" to TokenType.RETURN,
             "as" to TokenType.ASSIGNMENT,
-            "is" to TokenType.EQUAL,
+            "is" to TokenType.EQUAL_EQUAL,
+            "is not" to TokenType.NOT_EQUAL,
             "create a function" to TokenType.FUNCTION,
             "use" to TokenType.CALL,
             "return" to TokenType.RETURN,
@@ -28,6 +29,3 @@ object KeywordFactory {
         )
     }
 }
-
-//so i need to update scanner para magkuha din siya sa with params and also the parser
-//I need also to update parseParameterChain

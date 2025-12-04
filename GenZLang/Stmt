@@ -15,4 +15,6 @@ sealed class Stmt {
     data class Param(val name: Token, val next: Param?)
     data class Argument(val expression: Expr, val next: Argument?)
     data class Return(val value: Expr) : Stmt()
+    data class Input(val prompt: Expr, val variable: Token) : Stmt()
+    data class ArraySet(val name: Token, val index: Expr, val value: Expr) : Stmt()
 }
