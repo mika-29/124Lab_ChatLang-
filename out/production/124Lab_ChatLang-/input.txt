@@ -1,0 +1,6 @@
+$limit as 15.
+$i as 0.
+repeat this $limit times:
+$i as $i + 1.
+say $i.
+stop when.

@@ -239,43 +239,46 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun parseLoopStatement(): Stmt {
-        match(TokenType.COLON)
-        val bodyRoot = parseChain(TokenType.CONDITION)
+        consume(TokenType.COLON, "Expect ':' after 'repeat this'.")
+        val bodyRoot = parseChain(TokenType.END_LOOP)
         val body = Stmt.Block(bodyRoot)
-        consume(TokenType.CONDITION, "Expect 'until' to define the loop condition.")
-        val condition = parseExpression()
+
         consume(TokenType.END_LOOP, "Expect 'stop when' to close the loop.")
-        match(TokenType.DOT)
+        val condition = parseExpression()
+
+        consume(TokenType.DOT, "Expect '.' after loop condition.")
+
         return Stmt.Loop(condition, body)
     }
 
     private fun parseRepeatStatement(): Stmt {
-        val nextToken = tokens.getOrNull(current + 1)
-        val nextIsTimes = nextToken?.type == TokenType.ITERATION
-        // We have already consumed 'repeat this' (START_LOOP) to get here.
-        if (check(TokenType.NUM) || check(TokenType.SIGIL_IDENT) || check(TokenType.IDENTIFIER) && nextIsTimes) {
-            val count = parseExpression() 
-
-            consume(TokenType.ITERATION, "Expect 'times' after loop count.")
-            match(TokenType.COLON)
-
-            return parseHybridLoop(count)
+        if (check(TokenType.COLON)) {
+            return parseLoopStatement()
         }
 
-        return parseLoopStatement()
+        val count = parseExpression()
+
+        consume(TokenType.ITERATION, "Expect 'times' after loop count.")
+        consume(TokenType.COLON, "Expect ':' after 'times'.")
+
+        return parseHybridLoop(count)
     }
 
     private fun parseHybridLoop(countExpr: Expr): Stmt{
+
         val bodyRoot = parseChain(TokenType.END_LOOP)
         val body = Stmt.Block(bodyRoot)
 
+        consume(TokenType.END_LOOP, "Expect 'stop when' to close the loop.")
+
         var stopCondition: Expr? = null
 
-        if(match(TokenType.END_LOOP)){
-            consume(TokenType.COLON, "Expect ':' after 'Stop when'.")
+        if (!check(TokenType.DOT)) {
             stopCondition = parseExpression()
         }
-        match(TokenType.DOT)
+
+        consume(TokenType.DOT, "Expect '.' after loop.")
+
         return Stmt.HybridLoop(countExpr, body, stopCondition)
     }
 
